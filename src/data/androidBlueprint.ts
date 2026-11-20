@@ -15,16 +15,16 @@ export const ANDROID_PROJECT_TREE = `hydrolog-android/
 │       ├── AndroidManifest.xml           # CAMERA + INTERNET permissions, FileProvider
 │       ├── res/xml/file_paths.xml        # Temporary URI storage for meter photos
 │       └── java/com/hydrolog/app/
-│           ├── MainActivity.kt           # Role-gated NavHost (Login, User, Admin)
+│           ├── MainActivity.kt           # Role-gated NavHost (Field Users: Home/Submit/Records; Admin: +Dashboard/Setup/Users/Android)
 │           ├── data/
 │           │   ├── AuthStore.kt          # Encrypted/DataStore JWT & UserRole persistence
 │           │   ├── ApiService.kt         # Retrofit REST endpoints + Multipart image upload
 │           │   ├── AuthInterceptor.kt    # Attaches Authorization: Bearer <jwt>
-│           │   └── Models.kt             # User, MeterReading, Plant, LoginRequest
+│           │   └── Models.kt             # User, MeterReading, Plant, Motor, LoginRequest
 │           └── ui/screens/
-│               ├── LoginScreen.kt        # Admin-provisioned login (no public sign-up)
+│               ├── LoginScreen.kt        # Clean admin-provisioned login (no demo accounts or public sign-up)
 │               ├── UserHomeScreen.kt     # Field operator overview + quick submit CTA
-│               ├── SubmitReadingScreen.kt# CameraX capture, auto timestamp, Plant A/B/C
+│               ├── SubmitReadingScreen.kt# Runtime camera permission on 1st tap, auto-open thereafter, Plant/Motor/Status
 │               ├── MyRecordsScreen.kt    # GET /api/readings/mine scoped list
 │               ├── AdminDashboardScreen.kt # Total m³ summary + plant/date/user filters
 │               ├── AllRecordsScreen.kt   # Full records table, edit dialog, .xlsx export
@@ -65,7 +65,7 @@ android {
         applicationId = "com.hydrolog.app"
         minSdk = 26
         targetSdk = 35
-        buildConfigField("String", "API_BASE_URL", "\\"https://your-api-host.example.com/\\"")
+        buildConfigField("String", "API_BASE_URL", "\\"https://hydrolog-water-meter-reading-app-199133736510.asia-east1.run.app/\\"")
     }
     buildFeatures { compose = true; buildConfig = true }
 }
@@ -169,9 +169,11 @@ class AuthInterceptor(private val tokenProvider: () -> String?) : Interceptor {
     category: 'Android Kotlin',
     language: 'kotlin',
     summary:
-      'Jetpack Compose form launching the device camera via ActivityResultContracts.TakePicture, auto-filling ISO timestamp, selecting Plant A/B/C, and uploading multipart FormData.',
+      'Jetpack Compose form that pops up Android runtime Camera permission on first tap, opens the camera automatically on subsequent taps via TakePicture, and uploads multipart FormData.',
     code: `package com.hydrolog.app.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -179,14 +181,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import java.time.Instant
 
 @Composable
 fun SubmitReadingScreen(
     onSubmit: (photoUri: Uri, flowM3: Double, plant: String, recordedAt: String, review: String) -> Unit
 ) {
+    val context = LocalContext.current
     var photoUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var waterFlow by remember { mutableStateOf("") }
     var selectedPlant by remember { mutableStateOf("Plant A") }
     var recordedAt by remember { mutableStateOf(Instant.now().toString()) }
@@ -195,18 +201,41 @@ fun SubmitReadingScreen(
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
-        if (!success) photoUri = null
+        if (success) {
+            photoUri = pendingPhotoUri
+        } else {
+            pendingPhotoUri = null
+        }
+    }
+
+    val openCamera = {
+        val tempUri = createTempMeterPhotoUri(context)
+        pendingPhotoUri = tempUri
+        cameraLauncher.launch(tempUri)
+    }
+
+    // Pops up Android's native Camera permission dialog on first click; once granted, opens automatically
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) openCamera()
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Submit Water Meter Reading", style = MaterialTheme.typography.titleLarge)
 
         OutlinedButton(onClick = {
-            val tempUri = createTempMeterPhotoUri()
-            photoUri = tempUri
-            cameraLauncher.launch(tempUri)
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+            if (granted) {
+                openCamera()
+            } else {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
         }) {
-            Text(if (photoUri == null) "Capture Meter Photo" else "Retake Meter Photo")
+            Text(if (photoUri == null) "Open Camera" else "Retake Meter Photo")
         }
 
         OutlinedTextField(

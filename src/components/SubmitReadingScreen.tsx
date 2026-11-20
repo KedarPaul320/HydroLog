@@ -93,8 +93,17 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
 
   async function startCamera() {
     setCameraError(null);
+    const androidBridge = (
+      window as Window & {
+        HydroLogAndroid?: {
+          hasCameraPermission?: () => boolean;
+          openAppSettings?: () => void;
+        };
+      }
+    ).HydroLogAndroid;
     const isAndroidApp =
-      typeof navigator !== 'undefined' && /HydroLogAndroid/i.test(navigator.userAgent);
+      Boolean(androidBridge) ||
+      (typeof navigator !== 'undefined' && /HydroLogAndroid/i.test(navigator.userAgent));
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       if (cameraInputRef.current) {
@@ -119,12 +128,17 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
         }
       });
     } catch {
-      if (isAndroidApp && cameraInputRef.current) {
+      const nativePermissionKnown = typeof androidBridge?.hasCameraPermission === 'function';
+      const nativePermissionGranted = nativePermissionKnown
+        ? Boolean(androidBridge?.hasCameraPermission?.())
+        : true;
+
+      if (isAndroidApp && nativePermissionGranted && cameraInputRef.current) {
         cameraInputRef.current.click();
         return;
       }
       setCameraError(
-        'Camera permission was denied or no camera was detected. Allow camera access in settings or tap Choose Photo File.'
+        'Camera permission was denied. Tap Open Camera to allow camera access, or tap Choose Photo File.'
       );
     }
   }
@@ -362,7 +376,25 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
           />
 
           {cameraError && (
-            <p className="text-xs text-amber-700 mt-2">{cameraError}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <p className="text-xs text-amber-700">{cameraError}</p>
+              {typeof window !== 'undefined' &&
+                typeof (
+                  window as Window & { HydroLogAndroid?: { openAppSettings?: () => void } }
+                ).HydroLogAndroid?.openAppSettings === 'function' && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      (
+                        window as Window & { HydroLogAndroid?: { openAppSettings?: () => void } }
+                      ).HydroLogAndroid?.openAppSettings?.()
+                    }
+                    className="text-xs font-semibold text-sky-700 underline hover:text-sky-800 cursor-pointer"
+                  >
+                    Open App Settings
+                  </button>
+                )}
+            </div>
           )}
           {fieldErrors.image && (
             <p role="alert" className="text-xs text-red-700 mt-2 font-medium">

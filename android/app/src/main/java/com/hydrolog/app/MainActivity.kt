@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.Settings
 import android.text.InputType
 import android.util.Base64
 import android.view.View
@@ -113,11 +114,7 @@ class MainActivity : AppCompatActivity() {
                 pendingCaptureOnly = false
                 pendingFilePathCallback?.onReceiveValue(null)
                 pendingFilePathCallback = null
-                Toast.makeText(
-                    this,
-                    "Camera permission is required to take a meter photo.",
-                    Toast.LENGTH_LONG
-                ).show()
+                handleCameraPermissionDenied()
             }
         } else {
             launchMediaChooser(includeCamera = granted)
@@ -136,11 +133,42 @@ class MainActivity : AppCompatActivity() {
             request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
         } else {
             request.deny()
+            handleCameraPermissionDenied()
+        }
+    }
+
+    private fun handleCameraPermissionDenied() {
+        val canAskAgain = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+        if (!canAskAgain) {
+            AlertDialog.Builder(this)
+                .setTitle("Camera Permission Required")
+                .setMessage(
+                    "Camera access is currently turned off for HydroLog. Open App Settings to allow Camera so you can capture meter photos automatically."
+                )
+                .setPositiveButton("Open Settings") { _, _ ->
+                    openAppSettingsScreen()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        } else {
             Toast.makeText(
                 this,
-                "Camera permission denied. Allow Camera in app settings to use live capture.",
+                "Camera permission is required to open the camera.",
                 Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    private fun openAppSettingsScreen() {
+        try {
+            val intent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null)
+            )
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Open Android Settings to allow Camera access.", Toast.LENGTH_LONG)
+                .show()
         }
     }
 
@@ -182,6 +210,7 @@ class MainActivity : AppCompatActivity() {
         currentUrlLabel.text = url
         offlineContainer.visibility = View.GONE
         webView.visibility = View.VISIBLE
+        webView.clearCache(true)
         webView.loadUrl(url)
     }
 
@@ -376,11 +405,7 @@ class MainActivity : AppCompatActivity() {
                         fileCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                     }
                 } else {
-                    if (hasCameraPermission) {
-                        launchMediaChooser(includeCamera = true)
-                    } else {
-                        fileCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                    }
+                    launchMediaChooser(includeCamera = hasCameraPermission)
                 }
                 return true
             }
@@ -493,6 +518,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class HydroLogAndroidBridge {
+        @JavascriptInterface
+        fun hasCameraPermission(): Boolean {
+            return ContextCompat.checkSelfPermission(
+                this@MainActivity,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
+        @JavascriptInterface
+        fun openAppSettings() {
+            runOnUiThread {
+                openAppSettingsScreen()
+            }
+        }
+
         @JavascriptInterface
         fun saveBase64File(base64Data: String, rawFilename: String, mimeType: String): Boolean {
             val safeName = rawFilename

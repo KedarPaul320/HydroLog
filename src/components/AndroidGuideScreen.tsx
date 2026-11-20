@@ -4,7 +4,7 @@ import { BLUEPRINT_FILES } from '../data/androidBlueprint';
 
 const SHARED_APP_URL =
   'https://hydrolog-water-meter-reading-app-199133736510.asia-east1.run.app';
-const RELEASE_TAG_CMD = 'git tag v1.0.0 && git push origin v1.0.0';
+const RELEASE_TAG_CMD = 'git tag v1.0.2 && git push origin v1.0.2';
 
 export function AndroidGuideScreen() {
   const [selectedId, setSelectedId] = useState(BLUEPRINT_FILES[0].id);
@@ -85,7 +85,7 @@ export function AndroidGuideScreen() {
               <span>2. Download APK from Releases</span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              After ~2–3 minutes, open your GitHub repo&apos;s <strong>Releases</strong> panel on the right, pick the <strong>Latest</strong> release, and download <code className="font-mono text-slate-800">HydroLog-v1.0.0.apk</code> on your Android phone.
+              After ~2–3 minutes, open your GitHub repo&apos;s <strong>Releases</strong> panel on the right, pick the <strong>Latest</strong> release, and download <code className="font-mono text-slate-800">HydroLog-v1.0.2.apk</code> on your Android phone.
             </p>
           </div>
 
