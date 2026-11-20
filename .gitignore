@@ -1,0 +1,22 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Android build outputs & local signing
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/local.properties
+android/app/release-keystore.jks
+HydroLog-*.apk
+
+# Local runtime state
+data/*.db*
+uploads/meter-*
+.playwright-cli/

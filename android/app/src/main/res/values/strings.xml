@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HydroLog</string>
+    <string name="offline_title">Unable to reach HydroLog</string>
+    <string name="offline_message">Check your mobile data or Wi-Fi connection, then tap Retry to reconnect to your plant server.</string>
+    <string name="retry_button">Retry Connection</string>
+</resources>

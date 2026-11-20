@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HydroLog" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/hydrolog_primary</item>
+        <item name="colorPrimaryDark">@color/hydrolog_primary_dark</item>
+        <item name="android:statusBarColor">@color/hydrolog_primary</item>
+        <item name="android:windowBackground">@color/hydrolog_bg</item>
+    </style>
+</resources>
