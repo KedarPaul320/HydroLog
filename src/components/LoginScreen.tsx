@@ -31,12 +31,6 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   }
 
-  function fillCredentials(targetEmail: string, targetPassword: string) {
-    setEmail(targetEmail);
-    setPassword(targetPassword);
-    setError(null);
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:grid lg:grid-cols-12">
       {/* Left editorial utility panel (desktop) */}
@@ -162,34 +156,6 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 <span>{submitting ? 'Signing in...' : 'Sign In'}</span>
               </button>
             </form>
-
-            <div className="mt-6 pt-6 border-t border-slate-200">
-              <p className="text-xs font-medium text-slate-500 mb-3">
-                Seeded demo accounts (click to autofill)
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => fillCredentials('admin@aquaflow.io', 'admin123')}
-                  className="min-h-[44px] px-3 py-2 rounded-lg border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 text-left transition-colors cursor-pointer"
-                >
-                  <div className="text-xs font-semibold text-slate-900">Admin Account</div>
-                  <div className="text-xs text-slate-500 font-mono truncate">
-                    admin@aquaflow.io
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillCredentials('marcus@aquaflow.io', 'field123')}
-                  className="min-h-[44px] px-3 py-2 rounded-lg border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 text-left transition-colors cursor-pointer"
-                >
-                  <div className="text-xs font-semibold text-slate-900">Field Operator</div>
-                  <div className="text-xs text-slate-500 font-mono truncate">
-                    marcus@aquaflow.io
-                  </div>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </main>

@@ -17,6 +17,7 @@ import android.util.Base64
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -51,6 +52,8 @@ class MainActivity : AppCompatActivity() {
 
     private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingCameraPhotoUri: Uri? = null
+    private var pendingCaptureOnly = false
+    private var pendingWebPermissionRequest: PermissionRequest? = null
     private var hasMainFrameError = false
 
     private val prefs by lazy {
@@ -71,6 +74,7 @@ class MainActivity : AppCompatActivity() {
     ) { result ->
         val callback = pendingFilePathCallback
         pendingFilePathCallback = null
+        pendingCaptureOnly = false
 
         if (callback == null) {
             pendingCameraPhotoUri = null
@@ -98,10 +102,46 @@ class MainActivity : AppCompatActivity() {
         callback.onReceiveValue(selectedUris)
     }
 
-    private val cameraPermissionLauncher = registerForActivityResult(
+    // Native Android CAMERA permission dialog for file chooser / direct camera capture
+    private val fileCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        launchMediaChooser(includeCamera = granted)
+        if (pendingCaptureOnly) {
+            if (granted) {
+                launchDirectCamera()
+            } else {
+                pendingCaptureOnly = false
+                pendingFilePathCallback?.onReceiveValue(null)
+                pendingFilePathCallback = null
+                Toast.makeText(
+                    this,
+                    "Camera permission is required to take a meter photo.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } else {
+            launchMediaChooser(includeCamera = granted)
+        }
+    }
+
+    // Native Android CAMERA permission dialog for WebView getUserMedia ("Open Camera")
+    private val webCameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val request = pendingWebPermissionRequest
+        pendingWebPermissionRequest = null
+        if (request == null) return@registerForActivityResult
+
+        if (granted) {
+            request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+        } else {
+            request.deny()
+            Toast.makeText(
+                this,
+                "Camera permission denied. Allow Camera in app settings to use live capture.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -282,6 +322,39 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
             }
 
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                runOnUiThread {
+                    val wantsVideo =
+                        request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                    if (!wantsVideo) {
+                        request.deny()
+                        return@runOnUiThread
+                    }
+
+                    val hasCameraPermission = ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.CAMERA
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (hasCameraPermission) {
+                        // Already granted previously — open camera automatically
+                        request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+                    } else {
+                        // First time — pop up Android's native Camera permission dialog
+                        pendingWebPermissionRequest?.deny()
+                        pendingWebPermissionRequest = request
+                        webCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                }
+            }
+
+            override fun onPermissionRequestCanceled(request: PermissionRequest?) {
+                if (pendingWebPermissionRequest == request) {
+                    pendingWebPermissionRequest = null
+                }
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -289,19 +362,46 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 pendingFilePathCallback?.onReceiveValue(null)
                 pendingFilePathCallback = filePathCallback
+                pendingCaptureOnly = fileChooserParams?.isCaptureEnabled == true
 
                 val hasCameraPermission = ContextCompat.checkSelfPermission(
                     this@MainActivity,
                     Manifest.permission.CAMERA
                 ) == PackageManager.PERMISSION_GRANTED
 
-                if (hasCameraPermission) {
-                    launchMediaChooser(includeCamera = true)
+                if (pendingCaptureOnly) {
+                    if (hasCameraPermission) {
+                        launchDirectCamera()
+                    } else {
+                        fileCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 } else {
-                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    if (hasCameraPermission) {
+                        launchMediaChooser(includeCamera = true)
+                    } else {
+                        fileCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 }
                 return true
             }
+        }
+    }
+
+    private fun launchDirectCamera() {
+        val cameraIntent = createCameraIntent()
+        if (cameraIntent == null) {
+            pendingCaptureOnly = false
+            launchMediaChooser(includeCamera = false)
+            return
+        }
+        try {
+            fileChooserLauncher.launch(cameraIntent)
+        } catch (_: Exception) {
+            pendingCaptureOnly = false
+            pendingFilePathCallback?.onReceiveValue(null)
+            pendingFilePathCallback = null
+            pendingCameraPhotoUri = null
+            Toast.makeText(this, "Unable to open camera.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -384,6 +484,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        pendingWebPermissionRequest?.deny()
+        pendingWebPermissionRequest = null
         pendingFilePathCallback?.onReceiveValue(null)
         pendingFilePathCallback = null
         webView.destroy()

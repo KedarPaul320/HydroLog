@@ -227,7 +227,6 @@ export function canAccessRoute(role: UserRole, route: AppRoute): boolean {
     'user-home',
     'submit-reading',
     'my-records',
-    'android-guide',
   ];
   return userAllowed.includes(route);
 }

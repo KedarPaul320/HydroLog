@@ -54,6 +54,7 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync selected plant & motor if admin renamed them
   useEffect(() => {
@@ -92,7 +93,14 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
 
   async function startCamera() {
     setCameraError(null);
+    const isAndroidApp =
+      typeof navigator !== 'undefined' && /HydroLogAndroid/i.test(navigator.userAgent);
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (cameraInputRef.current) {
+        cameraInputRef.current.click();
+        return;
+      }
       setCameraError('Live camera preview is unavailable on this browser. Upload a meter photo below.');
       return;
     }
@@ -111,7 +119,13 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
         }
       });
     } catch {
-      setCameraError('Camera permission was denied or no camera was detected. Use photo upload instead.');
+      if (isAndroidApp && cameraInputRef.current) {
+        cameraInputRef.current.click();
+        return;
+      }
+      setCameraError(
+        'Camera permission was denied or no camera was detected. Allow camera access in settings or tap Choose Photo File.'
+      );
     }
   }
 
@@ -170,6 +184,7 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
     setImageFile(null);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -330,6 +345,15 @@ export function SubmitReadingScreen({ config, onSubmitted }: SubmitReadingScreen
             ref={fileInputRef}
             id="meter-photo-input"
             name="image"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="sr-only"
+          />
+
+          <input
+            ref={cameraInputRef}
+            id="meter-camera-input"
             type="file"
             accept="image/*"
             capture="environment"

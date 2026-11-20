@@ -24,7 +24,6 @@ const USER_NAV: NavItem[] = [
   { route: 'user-home', label: 'Home', shortLabel: 'Home', icon: Home },
   { route: 'submit-reading', label: 'Submit Reading', shortLabel: 'Submit', icon: Camera },
   { route: 'my-records', label: 'My Records', shortLabel: 'Records', icon: ClipboardList },
-  { route: 'android-guide', label: 'Android & API', shortLabel: 'Android', icon: Code2 },
 ];
 
 const ADMIN_DESKTOP_NAV: NavItem[] = [
@@ -195,7 +194,11 @@ export function AppShell({
       >
         <div
           className={`h-full grid ${
-            mobileNav.length === 5 ? 'grid-cols-5' : 'grid-cols-4'
+            mobileNav.length === 5
+              ? 'grid-cols-5'
+              : mobileNav.length === 3
+                ? 'grid-cols-3'
+                : 'grid-cols-4'
           } items-center`}
         >
           {mobileNav.map((item) => {

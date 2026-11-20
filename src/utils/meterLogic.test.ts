@@ -158,6 +158,7 @@ test('computeDashboardSummary aggregates dynamic plant names and motor running/s
 test('RBAC permission helpers enforce Admin vs User boundaries including plants-motors config', () => {
   assert.equal(canAccessRoute('admin', 'admin-dashboard'), true);
   assert.equal(canAccessRoute('admin', 'plants-motors'), true);
+  assert.equal(canAccessRoute('admin', 'android-guide'), true);
   assert.equal(canEditRecord('admin'), true);
   assert.equal(canManageUsers('admin'), true);
   assert.equal(canManageConfig('admin'), true);
@@ -167,6 +168,7 @@ test('RBAC permission helpers enforce Admin vs User boundaries including plants-
   assert.equal(canAccessRoute('user', 'submit-reading'), true);
   assert.equal(canAccessRoute('user', 'my-records'), true);
   assert.equal(canAccessRoute('user', 'plants-motors'), false);
+  assert.equal(canAccessRoute('user', 'android-guide'), false);
   assert.equal(canManageConfig('user'), false);
   assert.equal(canEditRecord('user'), false);
 });
