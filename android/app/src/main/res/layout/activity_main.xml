@@ -32,14 +32,17 @@
         android:visibility="gone">
 
         <TextView
+            android:id="@+id/offlineTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:gravity="center"
             android:text="@string/offline_title"
             android:textColor="@color/hydrolog_text"
             android:textSize="20sp"
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/offlineMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
@@ -47,6 +50,16 @@
             android:text="@string/offline_message"
             android:textColor="@color/hydrolog_muted"
             android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/currentUrlLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:textColor="@color/hydrolog_muted"
+            android:textSize="12sp"
+            android:typeface="monospace" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/retryButton"
@@ -57,5 +70,15 @@
             android:text="@string/retry_button"
             android:textAllCaps="false"
             android:textColor="#FFFFFF" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/changeUrlButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:text="@string/change_url_button"
+            android:textAllCaps="false"
+            android:textColor="@color/hydrolog_primary" />
     </LinearLayout>
 </FrameLayout>

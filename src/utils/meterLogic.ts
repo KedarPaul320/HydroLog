@@ -7,8 +7,8 @@ import type {
   PlantBreakdown,
   ReadingFilters,
   UserRole,
-} from '../types';
-import { DEFAULT_PLANTS, MOTOR_STATUSES } from '../types';
+} from '../types.ts';
+import { DEFAULT_PLANTS, MOTOR_STATUSES } from '../types.ts';
 
 export interface ReadingInputPayload {
   waterFlow: string | number;

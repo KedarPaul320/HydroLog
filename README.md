@@ -36,8 +36,8 @@ In ~2–3 minutes, GitHub Actions compiles the Android app and publishes `HydroL
 
 ## Server URL & Optional Signing Configuration
 
-- **Default Server URL**: Pre-configured in `android/gradle.properties` to your live HydroLog Shared App URL:
-  `https://ais-pre-5tnfqkbxa6fnkmd222jbzd-514499993628.asia-southeast1.run.app`
+- **Default Server URL**: Pre-configured in `android/gradle.properties` to your live published HydroLog URL:
+  `https://hydrolog-water-meter-reading-app-199133736510.asia-east1.run.app`
 - **Changing the Server URL Later**: Set a GitHub repository variable named `HYDROLOG_APP_URL` under **Settings → Secrets and variables → Actions → Variables**, or pass `app_url` when running the workflow manually.
 - **APK Signing**:
   - Works out of the box with zero secrets configured (builds a directly installable signed APK).

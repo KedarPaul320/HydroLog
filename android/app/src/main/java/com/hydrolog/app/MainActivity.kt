@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.text.InputType
 import android.util.Base64
 import android.view.View
 import android.webkit.CookieManager
@@ -20,14 +21,18 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -40,13 +45,25 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var offlineContainer: LinearLayout
+    private lateinit var offlineTitle: TextView
+    private lateinit var offlineMessage: TextView
+    private lateinit var currentUrlLabel: TextView
 
     private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingCameraPhotoUri: Uri? = null
     private var hasMainFrameError = false
 
-    private val appHost: String by lazy {
-        Uri.parse(BuildConfig.APP_URL).host.orEmpty()
+    private val prefs by lazy {
+        getSharedPreferences("hydrolog_prefs", MODE_PRIVATE)
+    }
+
+    private fun getActiveAppUrl(): String {
+        val saved = prefs.getString("custom_app_url", null)?.trim()
+        return if (!saved.isNullOrEmpty()) saved else BuildConfig.APP_URL
+    }
+
+    private fun getActiveHost(): String {
+        return Uri.parse(getActiveAppUrl()).host.orEmpty()
     }
 
     private val fileChooserLauncher = registerForActivityResult(
@@ -95,13 +112,18 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
         offlineContainer = findViewById(R.id.offlineContainer)
+        offlineTitle = findViewById(R.id.offlineTitle)
+        offlineMessage = findViewById(R.id.offlineMessage)
+        currentUrlLabel = findViewById(R.id.currentUrlLabel)
         val retryButton: MaterialButton = findViewById(R.id.retryButton)
+        val changeUrlButton: MaterialButton = findViewById(R.id.changeUrlButton)
 
         retryButton.setOnClickListener {
-            hasMainFrameError = false
-            offlineContainer.visibility = View.GONE
-            webView.visibility = View.VISIBLE
-            webView.loadUrl(BuildConfig.APP_URL)
+            loadActiveServer()
+        }
+
+        changeUrlButton.setOnClickListener {
+            showServerUrlDialog()
         }
 
         configureWebView()
@@ -110,8 +132,61 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
         } else {
-            webView.loadUrl(BuildConfig.APP_URL)
+            loadActiveServer()
         }
+    }
+
+    private fun loadActiveServer() {
+        val url = getActiveAppUrl()
+        hasMainFrameError = false
+        currentUrlLabel.text = url
+        offlineContainer.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        webView.loadUrl(url)
+    }
+
+    private fun showRecoveryScreen(title: String, message: String) {
+        hasMainFrameError = true
+        progressBar.visibility = View.GONE
+        webView.visibility = View.GONE
+        offlineTitle.text = title
+        offlineMessage.text = message
+        currentUrlLabel.text = getActiveAppUrl()
+        offlineContainer.visibility = View.VISIBLE
+    }
+
+    private fun showServerUrlDialog() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setText(getActiveAppUrl())
+            setSelection(text.length)
+            hint = "https://your-hydrolog-url.run.app"
+            setPadding(48, 32, 48, 32)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("HydroLog Server URL")
+            .setMessage("Enter the deployed HTTPS URL of your HydroLog server:")
+            .setView(input)
+            .setPositiveButton("Save & Connect") { _, _ ->
+                val raw = input.text.toString().trim()
+                if (raw.startsWith("https://") || raw.startsWith("http://")) {
+                    prefs.edit().putString("custom_app_url", raw).apply()
+                    loadActiveServer()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Enter a valid URL starting with https://",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .setNeutralButton("Reset Default") { _, _ ->
+                prefs.edit().remove("custom_app_url").apply()
+                loadActiveServer()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -144,7 +219,7 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 val uri = request?.url ?: return false
                 val targetHost = uri.host.orEmpty()
-                if (targetHost.equals(appHost, ignoreCase = true) || uri.scheme == "blob") {
+                if (targetHost.equals(getActiveHost(), ignoreCase = true) || uri.scheme == "blob") {
                     return false
                 }
                 return try {
@@ -177,10 +252,25 @@ class MainActivity : AppCompatActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
-                    hasMainFrameError = true
-                    progressBar.visibility = View.GONE
-                    webView.visibility = View.GONE
-                    offlineContainer.visibility = View.VISIBLE
+                    showRecoveryScreen(
+                        getString(R.string.offline_title),
+                        getString(R.string.offline_message)
+                    )
+                }
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: WebResourceResponse?
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                val status = errorResponse?.statusCode ?: return
+                if (request?.isForMainFrame == true && status >= 400) {
+                    showRecoveryScreen(
+                        "Server returned HTTP $status",
+                        "Make sure your HydroLog app is deployed or published publicly, or tap Change Server URL to connect to your deployed Cloud Run / web URL."
+                    )
                 }
             }
         }
@@ -197,7 +287,6 @@ class MainActivity : AppCompatActivity() {
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?
             ): Boolean {
-                // Cancel any previously dangling callback before starting a new one
                 pendingFilePathCallback?.onReceiveValue(null)
                 pendingFilePathCallback = filePathCallback
 

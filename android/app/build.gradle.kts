@@ -6,7 +6,7 @@ plugins {
 val configuredAppUrl = (project.findProperty("APP_URL") as String?)
     ?.trim()
     ?.takeIf { it.isNotEmpty() }
-    ?: "https://ais-pre-5tnfqkbxa6fnkmd222jbzd-514499993628.asia-southeast1.run.app"
+    ?: "https://hydrolog-water-meter-reading-app-199133736510.asia-east1.run.app"
 
 val escapedAppUrl = configuredAppUrl
     .replace("\\", "\\\\")

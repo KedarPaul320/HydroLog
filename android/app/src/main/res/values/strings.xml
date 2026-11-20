@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">HydroLog</string>
     <string name="offline_title">Unable to reach HydroLog</string>
-    <string name="offline_message">Check your mobile data or Wi-Fi connection, then tap Retry to reconnect to your plant server.</string>
+    <string name="offline_message">Check your internet connection or make sure your HydroLog server is published and live, then tap Retry.</string>
     <string name="retry_button">Retry Connection</string>
+    <string name="change_url_button">Change Server URL</string>
 </resources>
