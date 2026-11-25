@@ -1,0 +1,313 @@
+{
+  "entities": {
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted administrator membership document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 180
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private operator or administrator profile containing PII (email) isolated to owner or admin.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 180
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "user"]
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "name", "email", "role", "active", "createdAt"]
+    },
+    "Plant": {
+      "title": "Plant",
+      "description": "Configurable water monitoring plant location managed by administrators.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "sortOrder": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "sortOrder", "createdAt", "updatedAt"]
+    },
+    "Motor": {
+      "title": "Motor",
+      "description": "Configurable motor unit label managed by administrators.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "sortOrder": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "sortOrder", "createdAt", "updatedAt"]
+    },
+    "MeterReading": {
+      "title": "MeterReading",
+      "description": "Water meter reading record retained for 45 days from upload date and permanently deleted on day 46.",
+      "type": "object",
+      "properties": {
+        "waterFlow": {
+          "type": "number"
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "plant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "motorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "motorStatus": {
+          "type": "string",
+          "enum": ["Running", "Stopped"]
+        },
+        "review": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "photoId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "submittedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "submittedByName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "submittedByEmail": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "waterFlow",
+        "recordedAt",
+        "plant",
+        "motorName",
+        "motorStatus",
+        "review",
+        "photoId",
+        "submittedBy",
+        "submittedByName",
+        "submittedByEmail",
+        "createdAt",
+        "updatedAt",
+        "expiresAt"
+      ]
+    },
+    "MeterPhoto": {
+      "title": "MeterPhoto",
+      "description": "Compressed JPEG meter evidence photo paired 1:1 with a MeterReading and deleted together on day 46.",
+      "type": "object",
+      "properties": {
+        "readingId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mimeType": {
+          "type": "string",
+          "enum": ["image/jpeg", "image/png", "image/webp"]
+        },
+        "dataUrl": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 700000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["readingId", "ownerUid", "mimeType", "dataUrl", "createdAt", "expiresAt"]
+    },
+    "PlantMotorState": {
+      "title": "PlantMotorState",
+      "description": "Live single-motor-per-plant interlock state tracking which motor (if any) is currently running in each plant.",
+      "type": "object",
+      "properties": {
+        "plantId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "plantName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "activeMotorName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "activeReadingId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "previousStoppedMotor": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedByName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "plantId",
+        "plantName",
+        "activeMotorName",
+        "activeReadingId",
+        "previousStoppedMotor",
+        "updatedBy",
+        "updatedByName",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted admin role documents checked by isAdmin()."
+    },
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profiles provisioned by administrators."
+    },
+    "/plants/{plantId}": {
+      "schema": { "$ref": "#/entities/Plant" },
+      "description": "Persistent configurable plant stations."
+    },
+    "/motors/{motorId}": {
+      "schema": { "$ref": "#/entities/Motor" },
+      "description": "Persistent configurable motor units."
+    },
+    "/readings/{readingId}": {
+      "schema": { "$ref": "#/entities/MeterReading" },
+      "description": "Meter readings retained for 45 days from upload date."
+    },
+    "/reading_photos/{photoId}": {
+      "schema": { "$ref": "#/entities/MeterPhoto" },
+      "description": "Compressed meter photos paired with readings and purged on day 46."
+    },
+    "/plant_motor_states/{plantId}": {
+      "schema": { "$ref": "#/entities/PlantMotorState" },
+      "description": "Single-motor-per-plant interlock state ensuring only one motor runs per plant at a time."
+    }
+  }
+}

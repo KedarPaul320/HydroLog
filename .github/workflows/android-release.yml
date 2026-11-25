@@ -1,0 +1,165 @@
+name: Build & Release Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release version tag (e.g. v1.0.6)'
+        required: true
+        default: 'v1.0.6'
+        type: string
+      app_url:
+        description: 'Optional HydroLog App URL override (leave blank to use default Shared URL)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-android-apk:
+    name: Build & Publish HydroLog APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Determine release version & app URL
+        id: meta
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.version_tag }}
+          INPUT_URL: ${{ inputs.app_url }}
+          VAR_APP_URL: ${{ vars.HYDROLOG_APP_URL }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          else
+            TAG_NAME="${INPUT_TAG:-v1.0.6}"
+          fi
+
+          # Ensure tag starts with v for consistent release naming
+          if [[ "${TAG_NAME}" != v* ]]; then
+            TAG_NAME="v${TAG_NAME}"
+          fi
+
+          VERSION_NAME="${TAG_NAME#v}"
+          VERSION_CODE="${GITHUB_RUN_NUMBER:-1}"
+
+          APP_URL="${INPUT_URL}"
+          if [[ -z "${APP_URL}" ]]; then
+            APP_URL="${VAR_APP_URL}"
+          fi
+
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "app_url=${APP_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Decode custom release keystore (optional)
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -n "${KEYSTORE_B64}" ]]; then
+            echo "${KEYSTORE_B64}" | base64 --decode > "${GITHUB_WORKSPACE}/android/app/release-keystore.jks"
+            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build signed Android APK
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          GRADLE_ARGS=(
+            "assembleRelease"
+            "-PVERSION_NAME=${{ steps.meta.outputs.version_name }}"
+            "-PVERSION_CODE=${{ steps.meta.outputs.version_code }}"
+          )
+
+          if [[ -n "${{ steps.meta.outputs.app_url }}" ]]; then
+            GRADLE_ARGS+=("-PAPP_URL=${{ steps.meta.outputs.app_url }}")
+          fi
+
+          if [[ "${{ steps.signing.outputs.has_keystore }}" == "true" ]]; then
+            GRADLE_ARGS+=(
+              "-PRELEASE_STORE_FILE=${GITHUB_WORKSPACE}/android/app/release-keystore.jks"
+              "-PRELEASE_STORE_PASSWORD=${KEYSTORE_PASSWORD}"
+              "-PRELEASE_KEY_ALIAS=${KEY_ALIAS}"
+              "-PRELEASE_KEY_PASSWORD=${KEY_PASSWORD}"
+            )
+          fi
+
+          gradle "${GRADLE_ARGS[@]}"
+
+      - name: Rename APK for release
+        id: apk
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.meta.outputs.tag_name }}"
+          SRC_APK="android/app/build/outputs/apk/release/app-release.apk"
+          if [[ ! -f "${SRC_APK}" ]]; then
+            echo "Expected APK not found at ${SRC_APK}"
+            ls -la android/app/build/outputs/apk/release || true
+            exit 1
+          fi
+          OUT_NAME="HydroLog-${TAG_NAME}.apk"
+          cp "${SRC_APK}" "${OUT_NAME}"
+          echo "apk_path=${OUT_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HydroLog-${{ steps.meta.outputs.tag_name }}
+          path: ${{ steps.apk.outputs.apk_path }}
+          retention-days: 30
+
+      - name: Publish GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: HydroLog ${{ steps.meta.outputs.tag_name }}
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            ${{ steps.apk.outputs.apk_path }}
+          body: |
+            ## HydroLog Water Meter Reading App (${{ steps.meta.outputs.tag_name }})
+
+            ### How to Install on Your Android Phone
+            1. Download **${{ steps.apk.outputs.apk_path }}** from the **Assets** section below on your Android phone.
+            2. Open the downloaded `.apk` file.
+            3. If prompted, tap **Settings** and enable **Allow from this source** for your browser.
+            4. Tap **Install**, then launch **HydroLog** from your home screen.
+
+            ### Included Features
+            - **4H, 12H & 24H Water Flow Bar Graph** on the Admin Dashboard with cleaner layout (removed redundant summary cards)
+            - **Merged Export Excel Dropdown → Google Sheets**: choose **All Plants** or any individual plant to open directly in the Admin's Google Sheets account (Tab 1: `All Plants`, Tab 2+: each individual plant in its own sheet, opening straight to the chosen plant tab)
+            - Native Android **Google Sheets & Google Sign-In OAuth** support plus offline `.xlsx` download straight to your phone's **Downloads** folder
+            - **30-Day Per-Plant Water Usage Trends** chart on the Admin Dashboard (interactive Trend Lines & Stacked Bars with per-plant toggles and daily tooltips)
+            - Live **Single-Motor-Per-Plant Interlock** with working **Stop Motor** controls for both **Field Users** and **Admins**, automatically reflecting `Stopped` status across all readings and exports
+            - Zero-cost **Firebase Firestore** cloud storage for both meter readings and compressed meter photos (visible to Admins immediately with no Google Drive setup)
+            - Automatic **45-day retention** with permanent Day-46 deletion of both meter records and photos (in-app Admin purge + free Firestore TTL support)
+            - Email & Password authentication with clean role-based access (Admin & Field Operator)
+            - Native Android Camera permission prompt on first use, then automatic camera launch for meter evidence photos

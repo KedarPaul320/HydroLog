@@ -1,0 +1,356 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrapOwner() {
+      return isSignedIn()
+        && request.auth.token.email == 'kedarpaul53@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isBootstrapOwner() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isActiveMember() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+        )
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidAdminRecord(data, uid) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == uid
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 180
+        && data.createdAt is timestamp;
+    }
+
+    function isValidUserProfile(data, uid) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'role', 'active', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'name', 'email', 'role', 'active', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == uid
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 180
+        && data.role is string && (data.role == 'admin' || data.role == 'user')
+        && data.active is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPlantOrMotor(data) {
+      return data.keys().hasAll(['name', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 60
+        && data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidReading(data) {
+      return data.keys().hasAll([
+          'waterFlow',
+          'recordedAt',
+          'plant',
+          'motorName',
+          'motorStatus',
+          'review',
+          'photoId',
+          'submittedBy',
+          'submittedByName',
+          'submittedByEmail',
+          'createdAt',
+          'updatedAt',
+          'expiresAt'
+        ])
+        && data.keys().hasOnly([
+          'waterFlow',
+          'recordedAt',
+          'plant',
+          'motorName',
+          'motorStatus',
+          'review',
+          'photoId',
+          'submittedBy',
+          'submittedByName',
+          'submittedByEmail',
+          'createdAt',
+          'updatedAt',
+          'expiresAt'
+        ])
+        && data.waterFlow is number && data.waterFlow > 0 && data.waterFlow <= 1000000
+        && data.recordedAt is string && data.recordedAt.size() >= 10 && data.recordedAt.size() <= 40
+        && data.plant is string && data.plant.size() >= 1 && data.plant.size() <= 60
+        && data.motorName is string && data.motorName.size() >= 1 && data.motorName.size() <= 60
+        && data.motorStatus is string && (data.motorStatus == 'Running' || data.motorStatus == 'Stopped')
+        && data.review is string && data.review.size() <= 500
+        && isValidId(data.photoId)
+        && isValidId(data.submittedBy)
+        && data.submittedByName is string && data.submittedByName.size() >= 1 && data.submittedByName.size() <= 120
+        && data.submittedByEmail is string && data.submittedByEmail.size() <= 180
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.expiresAt is timestamp;
+    }
+
+    function isValidMeterPhoto(data) {
+      return data.keys().hasAll(['readingId', 'ownerUid', 'mimeType', 'dataUrl', 'createdAt', 'expiresAt'])
+        && data.keys().hasOnly(['readingId', 'ownerUid', 'mimeType', 'dataUrl', 'createdAt', 'expiresAt'])
+        && isValidId(data.readingId)
+        && isValidId(data.ownerUid)
+        && data.mimeType is string && (
+          data.mimeType == 'image/jpeg'
+          || data.mimeType == 'image/png'
+          || data.mimeType == 'image/webp'
+        )
+        && data.dataUrl is string && data.dataUrl.size() >= 30 && data.dataUrl.size() <= 700000
+        && data.createdAt is timestamp
+        && data.expiresAt is timestamp;
+    }
+
+    function isValidPlantMotorState(data, plantId) {
+      return data.keys().hasAll([
+          'plantId',
+          'plantName',
+          'activeMotorName',
+          'activeReadingId',
+          'previousStoppedMotor',
+          'updatedBy',
+          'updatedByName',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'plantId',
+          'plantName',
+          'activeMotorName',
+          'activeReadingId',
+          'previousStoppedMotor',
+          'updatedBy',
+          'updatedByName',
+          'updatedAt'
+        ])
+        && isValidId(data.plantId)
+        && data.plantId == plantId
+        && data.plantName is string && data.plantName.size() >= 1 && data.plantName.size() <= 60
+        && data.activeMotorName is string && data.activeMotorName.size() <= 60
+        && data.activeReadingId is string && data.activeReadingId.size() <= 128
+        && data.previousStoppedMotor is string && data.previousStoppedMotor.size() <= 60
+        && isValidId(data.updatedBy)
+        && data.updatedByName is string && data.updatedByName.size() >= 1 && data.updatedByName.size() <= 120
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection: /admins/{uid} ---
+    match /admins/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(uid)
+        && isValidAdminRecord(incoming(), uid)
+        && incoming().createdAt == request.time
+        && isAdmin();
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(uid) && isAdmin() && request.auth.uid != uid;
+    }
+
+    // --- Collection: /users/{uid} (PII Isolated) ---
+    match /users/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(uid)
+        && isValidUserProfile(incoming(), uid)
+        && incoming().createdAt == request.time
+        && isAdmin();
+      allow update: if isSignedIn()
+        && isValidId(uid)
+        && isValidUserProfile(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'active']);
+      allow delete: if isSignedIn() && isValidId(uid) && isAdmin() && request.auth.uid != uid;
+    }
+
+    // --- Collection: /plants/{plantId} ---
+    match /plants/{plantId} {
+      allow get: if isValidId(plantId) && isActiveMember();
+      allow list: if isActiveMember();
+      allow create: if isSignedIn()
+        && isValidId(plantId)
+        && isValidPlantOrMotor(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isSignedIn()
+        && isValidId(plantId)
+        && isValidPlantOrMotor(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'sortOrder', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(plantId) && isAdmin();
+    }
+
+    // --- Collection: /motors/{motorId} ---
+    match /motors/{motorId} {
+      allow get: if isValidId(motorId) && isActiveMember();
+      allow list: if isActiveMember();
+      allow create: if isSignedIn()
+        && isValidId(motorId)
+        && isValidPlantOrMotor(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isSignedIn()
+        && isValidId(motorId)
+        && isValidPlantOrMotor(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'sortOrder', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(motorId) && isAdmin();
+    }
+
+    // --- Collection: /readings/{readingId} ---
+    match /readings/{readingId} {
+      allow get: if isSignedIn()
+        && isValidId(readingId)
+        && (existing().submittedBy == request.auth.uid || isAdmin());
+      allow list: if isSignedIn()
+        && (resource.data.submittedBy == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && isValidId(readingId)
+        && isValidReading(incoming())
+        && incoming().submittedBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && incoming().expiresAt >= request.time + duration.value(44, 'd')
+        && incoming().expiresAt <= request.time + duration.value(46, 'd')
+        && isActiveMember()
+        && existsAfter(/databases/$(database)/documents/reading_photos/$(incoming().photoId));
+      allow update: if isSignedIn()
+        && isValidId(readingId)
+        && isValidReading(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().expiresAt == existing().expiresAt
+        && incoming().submittedBy == existing().submittedBy
+        && incoming().submittedByName == existing().submittedByName
+        && incoming().submittedByEmail == existing().submittedByEmail
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && (
+              // Action: Admin edits reading details (with optional replacement photo)
+              (
+                incoming().diff(existing()).affectedKeys().hasOnly([
+                  'waterFlow',
+                  'plant',
+                  'motorName',
+                  'motorStatus',
+                  'recordedAt',
+                  'review',
+                  'photoId',
+                  'updatedAt'
+                ])
+                && (
+                  incoming().photoId == existing().photoId ||
+                  existsAfter(/databases/$(database)/documents/reading_photos/$(incoming().photoId))
+                )
+              ) ||
+              // Action: Cascade plant/motor rename
+              incoming().diff(existing()).affectedKeys().hasOnly(['plant', 'updatedAt']) ||
+              incoming().diff(existing()).affectedKeys().hasOnly(['motorName', 'updatedAt'])
+            )
+          ) ||
+          (
+            // Action: Active member stops a currently running motor (Stop Motor button or interlock auto-stop)
+            isActiveMember()
+            && existing().motorStatus == 'Running'
+            && incoming().motorStatus == 'Stopped'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['motorStatus', 'updatedAt'])
+          )
+        );
+      allow delete: if isSignedIn() && isValidId(readingId) && isAdmin();
+    }
+
+    // --- Collection: /reading_photos/{photoId} ---
+    match /reading_photos/{photoId} {
+      allow get: if isSignedIn()
+        && isValidId(photoId)
+        && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn()
+        && (resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && isValidId(photoId)
+        && isValidMeterPhoto(incoming())
+        && incoming().createdAt == request.time
+        && incoming().expiresAt <= request.time + duration.value(46, 'd')
+        && (
+          (
+            incoming().ownerUid == request.auth.uid
+            && incoming().expiresAt >= request.time + duration.value(44, 'd')
+            && isActiveMember()
+          ) ||
+          (
+            incoming().expiresAt > request.time
+            && isAdmin()
+          )
+        );
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(photoId) && isAdmin();
+    }
+
+    // --- Collection: /plant_motor_states/{plantId} (Single-Motor Interlock) ---
+    match /plant_motor_states/{plantId} {
+      allow get: if isValidId(plantId) && isActiveMember();
+      allow list: if isActiveMember();
+      allow create, update: if isSignedIn()
+        && isValidId(plantId)
+        && isValidPlantMotorState(incoming(), plantId)
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && isActiveMember()
+        && exists(/databases/$(database)/documents/plants/$(plantId));
+      allow delete: if isSignedIn() && isValidId(plantId) && isAdmin();
+    }
+
+    // Connection validation probe (read-only)
+    match /test/connection {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# ==============================================================================
+# HydroLog .gcloudignore — Used by Google Cloud Build / AI Studio Publish.
+# Keeps builds fast and excludes private/unused files while STILL allowing
+# firebase-applet-config.json so the web app builds cleanly in Cloud Run.
+# ==============================================================================
+
+.git/
+.github/
+.gitignore
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+
+# Never upload local secrets, private screenshots, or test artifacts
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*service-account*.json
+*serviceAccount*.json
+*firebase-adminsdk*.json
+public/assets/aistudio/
+.playwright-cli/
+playwright-report/
+test-results/
+.aistudio/
+
+# Android project & docs are not needed to run the Cloud Run web server
+android/
+docs/
+tests/
+*.apk
+*.aab
+*.jks
+*.keystore
+*.log
+.DS_Store
+Thumbs.db

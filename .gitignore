@@ -1,0 +1,76 @@
+# ==============================================================================
+# HydroLog .gitignore — Keeps secrets, live Firebase configs, keystores,
+# private screenshots, and build artifacts out of GitHub.
+# ==============================================================================
+
+# 1. Dependencies & build outputs
+node_modules/
+build/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# 2. Environment variables, private keys & certificates
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.crt
+*.cer
+*.secret
+
+# 3. Live Firebase configs & service account credentials
+#    (Safe template firebase-applet-config.example.json stays tracked)
+firebase-applet-config.json
+firebase-firestore-config.json
+!firebase-applet-config.example.json
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+*serviceAccount*.json
+*firebase-adminsdk*.json
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# 4. Android local config, signing keystores & build outputs
+android/.gradle/
+android/.idea/
+android/.cxx/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+android/app/release-keystore.jks
+keystore.properties
+*.jks
+*.keystore
+*.apk
+*.aab
+HydroLog-*.apk
+
+# 5. Private screenshots, chat attachments, local databases & test outputs
+public/assets/aistudio/
+data/
+uploads/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+.playwright-cli/
+playwright-report/
+test-results/
+.aistudio/
+
+# 6. OS & editor clutter
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+npm-debug.log*

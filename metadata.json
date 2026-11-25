@@ -1,0 +1,10 @@
+{
+  "name": "HydroLog — Water Meter Reading App",
+  "description": "Field water meter reading capture with photo evidence, role-based access control, admin analytics dashboard, record management, and Excel export.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
